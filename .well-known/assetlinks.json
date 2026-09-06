@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.rajtiwari.yaad",
+        "sha256_cert_fingerprints": ["F1:CF:ED:25:E0:CC:86:95:51:83:7D:45:B1:28:3B:CD:F1:2C:E0:EE:9E:0E:CC:BF:F6:70:43:C1:0E:9A:55:F2"]
+      }
+    }]
