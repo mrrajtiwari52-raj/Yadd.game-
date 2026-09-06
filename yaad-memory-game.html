@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>YAAD — Memory Match</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1B6B70">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="YAAD">
+<link rel="apple-touch-icon" href="icon-512.png">
+<style>
+  :root{
+    --bg:#EAF4F4;
+    --card-back:#1B6B70;
+    --card-back-2:#155457;
+    --accent:#E8624A;
+    --sun:#F4B942;
+    --ink:#1B2A3A;
+    --success:#4F8F6B;
+    --panel:#FFFFFF;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0; padding:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    overscroll-behavior:none;
+    user-select:none;
+    min-height:100%;
+  }
+  .screen{
+    max-width:460px;
+    margin:0 auto;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    padding:16px 14px 20px;
+  }
+  header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:14px;
+  }
+  .title{
+    font-size:24px;
+    font-weight:800;
+    letter-spacing:.5px;
+  }
+  .level-pill{
+    background:var(--accent);
+    color:#fff;
+    font-weight:800;
+    font-size:15px;
+    padding:8px 16px;
+    border-radius:999px;
+  }
+  .subtext{
+    font-size:14px;
+    color:var(--ink);
+    opacity:.75;
+    margin-bottom:14px;
+  }
+  .progress{
+    font-size:15px;
+    font-weight:700;
+    text-align:center;
+    margin-bottom:12px;
+    color:var(--card-back);
+  }
+
+  #grid{
+    display:grid;
+    gap:8px;
+    margin:0 auto 14px;
+    width:100%;
+    flex:0 0 auto;
+  }
+  .card{
+    aspect-ratio:1;
+    border-radius:12px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:clamp(22px, 7vw, 38px);
+    cursor:pointer;
+    background:var(--card-back);
+    box-shadow:0 3px 0 var(--card-back-2);
+    transition:transform .12s ease, background .2s ease;
+    user-select:none;
+  }
+  .card:active{ transform:scale(.94); }
+  .card.flipped{
+    background:var(--panel);
+    box-shadow:0 3px 0 #D8D8D8;
+  }
+  .card.matched{
+    background:var(--success);
+    box-shadow:0 3px 0 #3B6E52;
+    cursor:default;
+    animation:pop .3s ease;
+  }
+  @keyframes pop{
+    0%{transform:scale(1);}
+    50%{transform:scale(1.12);}
+    100%{transform:scale(1);}
+  }
+
+  #message{
+    text-align:center;
+    min-height:50px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:18px;
+    font-weight:700;
+    color:var(--success);
+  }
+
+  .controls{
+    margin-top:auto;
+    display:flex;
+    gap:10px;
+    padding-top:10px;
+  }
+  button.big{
+    flex:1;
+    padding:16px 10px;
+    font-size:17px;
+    font-weight:800;
+    border:none;
+    border-radius:12px;
+    cursor:pointer;
+  }
+  .btn-restart{
+    background:var(--panel);
+    color:var(--ink);
+    box-shadow:0 3px 0 #D8D8D8;
+  }
+  .btn-next{
+    background:var(--sun);
+    color:var(--ink);
+    box-shadow:0 3px 0 #C68F1F;
+    display:none;
+  }
+  .btn-restart:active, .btn-next:active{ transform:translateY(2px); box-shadow:none; }
+  .credit{
+    text-align:center;
+    font-size:11px;
+    color:var(--ink);
+    opacity:.55;
+    margin-top:12px;
+    letter-spacing:.3px;
+  }
+</style>
+</head>
+<body>
+<div class="screen">
+  <header>
+    <div class="title">YAAD 🧠</div>
+    <div class="level-pill">Level <span id="levelNo">1</span></div>
+  </header>
+  <div class="subtext">Do ek jaisi cheez khojo. Card pe tap karke dekho, yaad rakho, match karo.</div>
+
+  <div class="progress">Mile: <span id="foundCount">0</span> / <span id="totalPairs">3</span></div>
+  <div id="message"></div>
+  <div id="grid"></div>
+
+  <div class="controls">
+    <button class="big btn-restart" id="restartBtn">Dobara Shuru</button>
+    <button class="big btn-next" id="nextBtn">Agla Level →</button>
+  </div>
+  <div class="credit">Made by Raj Tiwari</div>
+</div>
+
+<script>
+const EMOJI_POOL = ["🍎","🍌","🍇","🍓","🍉","🍊","🍑","🥝","🍒","🥭","🍍","🍋","🐶","🐱","🐸","🦋"];
+
+// Level design: [rows, cols, pairs]
+const LEVELS = [
+  {rows:2, cols:3, pairs:3},
+  {rows:3, cols:4, pairs:6},
+  {rows:4, cols:4, pairs:8},
+  {rows:4, cols:5, pairs:10},
+  {rows:4, cols:6, pairs:12},
+];
+
+let currentLevel = 0;
+let cards = [];
+let flipped = [];
+let matchedCount = 0;
+let lock = false;
+
+const gridEl = document.getElementById('grid');
+const levelNoEl = document.getElementById('levelNo');
+const foundCountEl = document.getElementById('foundCount');
+const totalPairsEl = document.getElementById('totalPairs');
+const messageEl = document.getElementById('message');
+const restartBtn = document.getElementById('restartBtn');
+const nextBtn = document.getElementById('nextBtn');
+
+function shuffle(arr){
+  for(let i=arr.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+  return arr;
+}
+
+function buildLevel(){
+  const cfg = LEVELS[currentLevel];
+  const symbols = EMOJI_POOL.slice(0, cfg.pairs);
+  let deck = shuffle([...symbols, ...symbols]);
+
+  cards = deck.map((sym, idx) => ({ id: idx, symbol: sym, isFlipped:false, isMatched:false }));
+  flipped = [];
+  matchedCount = 0;
+  lock = false;
+
+  levelNoEl.textContent = currentLevel+1;
+  totalPairsEl.textContent = cfg.pairs;
+  foundCountEl.textContent = 0;
+  messageEl.textContent = "";
+  nextBtn.style.display = 'none';
+
+  gridEl.style.gridTemplateColumns = `repeat(${cfg.cols}, 1fr)`;
+  gridEl.innerHTML = "";
+
+  cards.forEach(card=>{
+    const el = document.createElement('div');
+    el.className = 'card';
+    el.id = 'card-'+card.id;
+    el.onclick = ()=>flipCard(card.id);
+    gridEl.appendChild(el);
+  });
+}
+
+function flipCard(id){
+  if(lock) return;
+  const card = cards.find(c=>c.id===id);
+  if(card.isFlipped || card.isMatched) return;
+
+  card.isFlipped = true;
+  const el = document.getElementById('card-'+id);
+  el.textContent = card.symbol;
+  el.classList.add('flipped');
+  flipped.push(card);
+
+  if(flipped.length === 2){
+    lock = true;
+    setTimeout(checkMatch, 550);
+  }
+}
+
+function checkMatch(){
+  const [a,b] = flipped;
+  if(a.symbol === b.symbol){
+    a.isMatched = true; b.isMatched = true;
+    document.getElementById('card-'+a.id).classList.add('matched');
+    document.getElementById('card-'+b.id).classList.add('matched');
+    matchedCount++;
+    foundCountEl.textContent = matchedCount;
+
+    if(matchedCount === LEVELS[currentLevel].pairs){
+      if(currentLevel === LEVELS.length - 1){
+        messageEl.textContent = "🎉 Sabhi level poore! Aap champion ho!";
+        restartBtn.textContent = "Fir Se Shuru Karein";
+        currentLevel = -1;
+      } else {
+        messageEl.textContent = "🎉 Level poora hua! Badhiya khela!";
+        nextBtn.style.display = 'block';
+      }
+    }
+  } else {
+    document.getElementById('card-'+a.id).classList.remove('flipped');
+    document.getElementById('card-'+b.id).classList.remove('flipped');
+    document.getElementById('card-'+a.id).textContent = "";
+    document.getElementById('card-'+b.id).textContent = "";
+    a.isFlipped = false; b.isFlipped = false;
+  }
+  flipped = [];
+  lock = false;
+}
+
+restartBtn.onclick = ()=>{
+  if(currentLevel === -1) currentLevel = 0;
+  restartBtn.textContent = "Dobara Shuru";
+  buildLevel();
+};
+
+nextBtn.onclick = ()=>{
+  currentLevel++;
+  buildLevel();
+};
+
+buildLevel();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
